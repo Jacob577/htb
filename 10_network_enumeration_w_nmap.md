@@ -78,3 +78,32 @@ sudo nmap --script smb-os-discovery.nse <IP>
 # Enumerate over hostname:
 sudo nmap -A --top-ports=20 <IP>
 ```
+
+### Save results from nmap:
+```bash
+# XML
+-oX
+
+# .nmap
+-oN
+
+# .gnmap
+-oG
+```
+
+To furthermore convert results to HTML: `xsltproc target.xml -o target.html`
+
+To increase verbosity of the scan, use: `-v`
+
+<b>We can include tcpdump in our attacks</b>
+```bash
+sudo tcpdump -i eth0 host 10.10.14.2 and 10.129.2.28
+```
+
+## Important to remember: there are --scripts to nmap, such as smb scripts and so forth, another great script is 'banner'. 
+
+A good script to include in nmap is: `--scripts vuln`:
+```bash
+sudo nmap 10.129.2.28 -p 80 -sV --script vuln 
+```
+

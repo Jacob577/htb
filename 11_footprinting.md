@@ -125,3 +125,88 @@ telnet 10.129.14.136 21
 # If FTP runs with TLS/SSL
 openssl s_client -connect 10.129.14.136:21 -starttls ftp
 ```
+
+CIFS - Common Internet File System. (SAMBA)
+
+    CIFS 	Windows NT 4.0 	Communication via NetBIOS interface
+    SMB 1.0 	Windows 2000 	Direct connection via TCP
+    SMB 2.0 	Windows Vista, Windows Server 2008 	Performance upgrades, improved message signing, caching feature
+    SMB 2.1 	Windows 7, Windows Server 2008 R2 	Locking mechanisms
+    SMB 3.0 	Windows 8, Windows Server 2012 	Multichannel connections, end-to-end encryption, remote storage access
+    SMB 3.0.2 	Windows 8.1, Windows Server 2012 R2 	
+    SMB 3.1.1 	Windows 10, Windows Server 2016 	Integrity checking, AES-128 encryption
+
+<b>Default settings for smb</b>
+```bash
+cat /etc/samba/smb.conf | grep -v "#\|\;" 
+```
+
+<b>Worst is: Browsable = yes</b>
+
+    browseable = yes 	Allow listing available shares in the current share?
+    read only = no 	Forbid the creation and modification of files?
+    writable = yes 	Allow users to create and modify files?
+    guest ok = yes 	Allow connecting to the service without using a password?
+    enable privileges = yes 	Honor privileges assigned to specific SID?
+    create mask = 0777 	What permissions must be assigned to the newly created files?
+    directory mask = 0777 	What permissions must be assigned to the newly created directories?
+    logon script = script.sh 	What script needs to be executed on the user's login?
+    magic script = script.sh 	Which script should be executed when the script gets closed?
+    magic output = script.out 	Where the output of the magic script needs to be stored?
+
+<b>Restart samba: `sudo systemctl restart smbd`</b>
+<b>Connect to samba: `smbclient -N -L //<IP>`</b>
+Output:
+```bash
+        Sharename       Type      Comment
+        ---------       ----      -------
+        print$          Disk      Printer Drivers
+        home            Disk      INFREIGHT Samba
+        dev             Disk      DEVenv
+        notes           Disk      CheckIT
+        IPC$            IPC       IPC Service (DEVSM)
+```
+
+To connect to /notes: `smbclient //10.129.14.128/notes`
+
+Status of samba: `smbstatus` (connected to samba share)
+
+<b>Footprint Samba:</b>
+```bash
+sudo nmap 10.129.14.128 -sV -sC -p139,445
+```
+
+Other ways of getting information of a samba share: `rpcclient -U "" <IP>`
+
+    srvinfo 	Server information.
+    enumdomains 	Enumerate all domains that are deployed in the network.
+    querydominfo 	Provides domain, server, and user information of deployed domains.
+    netshareenumall 	Enumerates all available shares.
+    netsharegetinfo <share> 	Provides information about a specific share.
+    enumdomusers 	Enumerates all domain users.
+    queryuser <RID> 	Provides information about a specific user.
+
+Query groups: `querygroup 0x201`
+
+### Brute forcing user RIDs
+```bash
+for i in $(seq 500 1100);do rpcclient -N -U "" <IP> -c "queryuser 0x$(printf '%x\n' $i)" | grep "User Name\|user_rid\|group_rid" && echo "";done
+```
+Alternatively, use `samrdump.py` from [samrdump](https://github.com/fortra/impacket/blob/master/examples/samrdump.py)
+
+<b>Map out SMB</b>
+```bash
+smbmap -H 10.129.14.128
+
+# or
+crackmapexec smb 10.129.14.128 --shares -u '' -p ''
+```
+
+<b>Enum4Linux-ng</b>
+```bash
+git clone https://github.com/cddmp/enum4linux-ng.git
+cd enum4linux-ng
+pip3 install -r requirements.txt
+
+./enum4linux-ng.py 10.129.14.128 -A
+```

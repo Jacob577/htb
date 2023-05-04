@@ -268,3 +268,4 @@ sudo nmap <IP> -p- -sS -Pn -n --disable-arp-ping --source-port 53
 # To connect
 nc -nv -p 53 <IP> <port>
 ```
+

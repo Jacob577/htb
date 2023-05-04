@@ -27,3 +27,54 @@ For example, the TCP-SYN scan (-sS) is one of the default settings unless we hav
 ```bash
 sudo nmap 10.129.2.0/24 -sn -oA tnet | grep for | cut -d" " -f5
 ```
+
+    10.129.2.0/24 	Target network range.
+    -sn 	Disables port scanning.
+    -oA tnet 	Stores the results in all formats starting with the name 'tnet'.
+
+<b>To save the nmap scan, use `-il <file_name>`:</b>
+```bash
+sudo nmap -sn -oA tnet -iL hosts.lst | grep for | cut -d" " -f5
+```
+    -sn 	Disables port scanning.
+    -oA tnet 	Stores the results in all formats starting with the name 'tnet'.
+    -iL 	Performs defined scans against targets in provided 'hosts.lst' list.
+
+<b>To check if the host is alive:</b>
+```bash
+sudo nmap 10.129.2.18 -sn -oA host -PE --packet-trace 
+```
+
+    10.129.2.18 	Performs defined scans against the target.
+    -sn 	Disables port scanning.
+    -oA host 	Stores the results in all formats starting with the name 'host'.
+    -PE 	Performs the ping scan by using 'ICMP Echo requests' against the target.
+    --packet-trace 	Shows all packets sent and received
+
+<b>Another great option with nmap is trace packets</b>
+```bash
+sudo nmap 10.129.2.28 -p 21 --packet-trace -Pn -n --disable-arp-ping
+```
+    10.129.2.28 	Scans the specified target.
+    -p 21 	Scans only the specified port.
+    --packet-trace 	Shows all packets sent and received.
+    -n 	Disables DNS resolution.
+    --disable-arp-ping 	Disables ARP ping.
+
+To see if we can establish a full TCP connection, use: `-sT`, a bit more aggressive.
+
+To make an UDP scan, use the flag: `-sU`
+```bash
+sudo nmap 10.129.2.28 -F -sU
+```
+    10.129.2.28 	Scans the specified target.
+    -F 	Scans top 100 ports.
+    -sU 	Performs a UDP scan.
+
+To scan a smb share:
+```bash
+sudo nmap --script smb-os-discovery.nse <IP> 
+
+# Enumerate over hostname:
+sudo nmap -A --top-ports=20 <IP>
+```

@@ -454,3 +454,19 @@ default ports: `110`, `143`, `993`, `995`
 sudo nmap 10.129.14.128 -sV -p110,143,993,995 -sC
 ```
 
+<b>cURL</b>
+```bash
+curl -k 'imaps://10.129.14.128' --user user:p4ssw0rd
+
+# May add -v for verbose
+```
+
+<b>Interact with IMAP & POP3 over ssl:</b>
+```bash
+openssl s_client -connect 10.129.14.128:pop3s
+
+openssl s_client -connect 10.129.14.128:imaps
+```
+
+To fetch a message in IMAP: `tag FETCH 1 RFC822`
+

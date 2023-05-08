@@ -515,3 +515,108 @@ Often, when certain community strings are bound to specific IP addresses, they a
 
 We can use [crunch](https://secf00tprint.github.io/blog/passwords/crunch/advanced/en) as a wordlist and crack passwords with [HashCat](https://academy.hackthebox.com/course/preview/cracking-passwords-with-hashcat). 
 
+
+# MySQL
+works according to the client-server principle and consists of a MySQL server and a MySQL client
+
+`MariaDB` is often connected to MySQL
+
+Default Configuration: `database administrator`, 
+<b>Default configuration:</b>
+```bash
+sudo apt install mysql-server -y
+cat /etc/mysql/mysql.conf.d/mysqld.cnf | grep -v "#" | sed -r '/^\s*$/d'
+```
+
+<b>Dangerous settings:</b>
+
+    user 	Sets which user the MySQL service will run as.
+    password 	Sets the password for the MySQL user.
+    admin_address 	The IP address on which to listen for TCP/IP connections on the administrative network interface.
+    debug 	This variable indicates the current debugging settings
+    sql_warnings 	This variable controls whether single-row INSERT statements produce an information string if warnings occur.
+    secure_file_priv 	This variable is used to limit the effect of data import and export operations.
+
+
+
+### Footprinting the service
+```bash
+sudo nmap 10.129.14.128 -sV -sC -p3306 --script mysql*
+```
+
+Always on Port `3306`
+
+<b>Interact with service</b>
+```bash
+mysql -u root -h 10.129.14.132
+
+mysql -u root -pP4SSw0rd -h 10.129.14.128
+```
+
+<b>Common commands</b>
+    mysql -u <user> -p<password> -h <IP address> 	Connect to the MySQL server. There should not be a space between the '-p' flag, and the password.
+    show databases; 	Show all databases.
+    use <database>; 	Select one of the existing databases.
+    show tables; 	Show all available tables in the selected database.
+    show columns from <table>; 	Show all columns in the selected database.
+    select * from <table>; 	Show everything in the desired table.
+    select * from <table> where <column> = "<string>";
+
+
+# MSSQL
+Microsoft SQL
+`SSMS` is used to analyze MSSQL
+
+<b>MSSQL Clients</b>
+```bash
+locate mssqlclient
+```
+
+<b>Defaults</b>
+
+    Default System Database 	Description
+    master 	Tracks all system information for an SQL server instance
+    model 	Template database that acts as a structure for every new database created. Any setting changed in the model database will be reflected in any new database created after changes to the model database
+    msdb 	The SQL Server Agent uses this database to schedule jobs & alerts
+    tempdb 	Stores temporary objects
+    resource 	Read-only database containing system objects included with SQL server
+
+Encryption is not forced by default
+
+<b>Dangerous settings (some of them)</b>
+
+
+    MSSQL clients not using encryption to connect to the MSSQL server
+
+    The use of self-signed certificates when encryption is being used. It is possible to spoof self-signed certificates
+
+    The use of named pipes
+
+    Weak & default sa credentials. Admins may forget to disable this account
+
+[named pipes](https://learn.microsoft.com/en-us/sql/tools/configuration-manager/named-pipes-properties?view=sql-server-ver15)
+
+### Footprinting service
+`port 1433`
+
+The scripted NMAP scan below provides us with helpful information. We can see the hostname, database instance name, software version of MSSQL and named pipes are enabled. We will benefit from adding these discoveries to our notes.
+
+<b>Great nmap scan</b>
+```bash
+sudo nmap --script ms-sql-info,ms-sql-empty-password,ms-sql-xp-cmdshell,ms-sql-config,ms-sql-ntlm-info,ms-sql-tables,ms-sql-hasdbaccess,ms-sql-dac,ms-sql-dump-hashes --script-args mssql.instance-port=1433,mssql.username=sa,mssql.password=,mssql.instance-name=MSSQLSERVER -sV -p 1433 10.129.201.248
+
+# Readable format:
+sudo nmap --script ms-sql-info,ms-sql-empty-password,ms-sql-xp-cmdshell,
+ms-sql-config,ms-sql-ntlm-info,ms-sql-tables,ms-sql-hasdbaccess,ms-sql-dac,
+ms-sql-dump-hashes --script-args mssql.instance-port=1433,mssql.username=sa,
+mssql.password=,mssql.instance-name=MSSQLSERVER -sV -p 1433 10.129.201.248
+```
+
+We can also use mssql_ping from metasploit `auxiliary/scanner/mssql/mssql_ping`
+
+
+<b>Connecting to `mssql`</b>
+```bash
+python3 mssqlclient.py Administrator@10.129.201.248 -windows-auth
+```
+

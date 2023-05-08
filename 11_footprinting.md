@@ -470,3 +470,48 @@ openssl s_client -connect 10.129.14.128:imaps
 
 To fetch a message in IMAP: `tag FETCH 1 RFC822`
 
+IMAP commands are difficult af....
+
+
+# SNMP
+Simple Network Management Protocol, was created to monitor network devices. Can also change settings remotely. 
+
+<b>Port `162`</b>
+
+### MIB - Management Information Base ensure SNMP access works across manufactrurers and with different client-server combinations. 
+
+SNMPv1 Do not support authentication or encryption
+SNMPv2 (v2c), c - community string
+SNMPv3 - security has been increased with authentication and encrypted transmission (via pre-shared key). 
+
+<b>SNMP Daemon Config</b>
+```bash
+cat /etc/snmp/snmpd.conf | grep -v "#" | sed -r '/^\s*$/d'
+```
+
+<b>Dangerous settings:</b>
+
+    rwuser noauth 	Provides access to the full OID tree without authentication.
+    rwcommunity <community string> <IPv4 address> 	Provides access to the full OID tree regardless of where the requests were sent from.
+    rwcommunity6 <community string> <IPv6 address> 	Same access as with rwcommunity with the difference of using IPv6.
+
+### Footprinting the service:
+`snmpwalk`, `onesixtyone`, and `braa`.
+```bash
+# snmpwalk
+snmpwalk -v2c -c public 10.129.14.128
+
+# OneSixtyOne
+sudo apt install onesixtyone
+onesixtyone -c /opt/useful/SecLists/Discovery/SNMP/snmp.txt 10.129.14.1
+
+# Braa
+sudo apt install braa
+braa <community string>@<IP>:.1.3.6.*   # Syntax
+braa public@10.129.14.128:.1.3.6.*
+```
+
+Often, when certain community strings are bound to specific IP addresses, they are named with the hostname of the host, and sometimes even symbols are added to these names to make them more challenging to identify. However, if we imagine an extensive network with over 100 different servers managed using SNMP, the labels, in that case, will have some pattern to them. Therefore, we can use different rules to guess them.
+
+We can use [crunch](https://secf00tprint.github.io/blog/passwords/crunch/advanced/en) as a wordlist and crack passwords with [HashCat](https://academy.hackthebox.com/course/preview/cracking-passwords-with-hashcat). 
+

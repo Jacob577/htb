@@ -762,3 +762,214 @@ echo "Oracle File Upload Test" > testing.txt
 
 curl -X GET http://10.129.204.235/testing.txt
 ```
+
+# IPMI - Intelligent Platform Management Interface
+
+is a set of standardized specifications for hardware-based host management systems used for system management and monitoring. 
+
+IPMI is typically used in three ways: 
+
+    
+    Before the OS has booted to modify BIOS settings
+    When the host is fully powered down
+    Access to a host after a system failure
+
+<b>Can measure the following:</b>
+
+    Baseboard Management Controller (BMC) - A micro-controller and essential component of an IPMI
+    Intelligent Chassis Management Bus (ICMB) - An interface that permits communication from one chassis to another
+    Intelligent Platform Management Bus (IPMB) - extends the BMC
+    IPMI Memory - stores things such as the system event log, repository store data, and more
+    Communications Interfaces - local system interfaces, serial and LAN interfaces, ICMB and PCI Management Bus
+
+
+### Footprinting the service
+```bash
+sudo nmap -sU --script ipmi-version -p 623 ilo.inlanfreight.local
+```
+
+Also available by metasploit
+`use auxiliary/scanner/ipmi/ipmi_version `
+
+<b>Defaults:</b>
+
+    Product 	Username 	Password
+    Dell iDRAC 	root 	calvin
+    HP iLO 	Administrator 	randomized 8-character string consisting of numbers and uppercase letters
+    Supermicro IPMI 	ADMIN 	ADMIN
+
+If default credentials do not work to access a BMC, we can turn to a flaw in the RAKP protocol in IPMI 2.0. During the authentication process, the server sends a salted SHA1 or MD5 hash of the user's password to the client before authentication takes place. This can be leveraged to obtain the password hash for ANY valid user account on the BMC. These password hashes can then be cracked offline using a dictionary attack using `Hashcat mode 7300`. In the event of an HP iLO using a factory default password, we can use this Hashcat mask attack command `hashcat -m 7300 ipmi.txt -a 3 ?1?1?1?1?1?1?1?1 -1 ?d?u` which tries all combinations of upper case letters and numbers for an eight-character password.
+
+<b>Dumping hashes with Metasploit</b>
+`use auxiliary/scanner/ipmi/ipmi_dumphashes `
+
+To use hashcat with salt, use mode 7300, `-m 7300`
+
+# Linux Remote Management Protocols
+Two types of ssh, `SSH-1` & `SSH-2`
+And OpenBSD SSH `OpenSSH`
+
+    Password authentication
+    Public-key authentication
+    Host-based authentication
+    Keyboard authentication
+    Challenge-response authentication
+    GSSAPI authentication
+
+<b>Default configuration:</b>
+```bash
+cat /etc/ssh/sshd_config  | grep -v "#" | sed -r '/^\s*$/d'
+```
+
+<b>Dangerous settings:</b>
+
+    Setting 	Description
+    PasswordAuthentication yes 	Allows password-based authentication.
+    PermitEmptyPasswords yes 	Allows the use of empty passwords.
+    PermitRootLogin yes 	Allows to log in as the root user.
+    Protocol 1 	Uses an outdated version of encryption.
+    X11Forwarding yes 	Allows X11 forwarding for GUI applications.
+    AllowTcpForwarding yes 	Allows forwarding of TCP ports.
+    PermitTunnel 	Allows tunneling.
+    DebianBanner yes 	Displays a specific banner when logging in.
+
+[Hardening guide](https://www.ssh-audit.com/hardening_guides.html)
+
+### Footprinting service:
+```bash
+git clone https://github.com/jtesta/ssh-audit.git && cd ssh-audit
+./ssh-audit.py 10.129.14.132
+```
+
+Look at the banner and search for voulnerabilities
+
+### Change Authentication Method:
+`ssh -v cry0l1t3@10.129.14.132`
+
+For potential brute-force attacks, we can specify the authentication method with the SSH client option PreferredAuthentications.
+
+`ssh -v cry0l1t3@10.129.14.132 -o PreferredAuthentications=password`
+
+We may encounter various banners for the SSH server during our penetration tests. By default, the banners start with the version of the protocol that can be applied and then the version of the server itself. For example, with SSH-1.99-OpenSSH_3.9p1, we know that we can use both protocol versions SSH-1 and SSH-2, and we are dealing with OpenSSH server version 3.9p1. On the other hand, for a banner with SSH-2.0-OpenSSH_8.2p1, we are dealing with an OpenSSH version 8.2p1 which only accepts the SSH-2 protocol version.
+
+
+<b>Rsync is a fast and efficient tool for locally and remotely copying files</b>
+Port: `873`
+
+<b>Scanning for Rsync</b>
+```bash
+sudo nmap -sV -p 873 127.0.0.1
+```
+
+<b>Probing for accessible shares</b>
+```bash
+nc -nv 127.0.0.1 873
+```
+
+<b>Enumerating an Open Share</b>
+```bash
+rsync -av --list-only rsync://127.0.0.1/dev
+```
+
+From the above output, we can see a few interesting files that may be worth pulling down to investigate further. We can also see that a directory likely containing SSH keys is accessible. From here, we could sync all files to our attack host with the command rsync -av rsync://127.0.0.1/dev. If Rsync is configured to use SSH to transfer files, we could modify our commands to include the -e ssh flag, or -e "ssh -p2222" if a non-standard port is in use for SSH. This guide is helpful for understanding the syntax for using Rsync over SSH.
+
+### R-Services
+ports span accross: `512-514`
+
+    
+    rcp (remote copy)
+    rexec (remote execution)
+    rlogin (remote login)
+    rsh (remote shell)
+    rstat
+    ruptime
+    rwho (remote who)
+
+    Command 	Service Daemon 	Port 	Transport Protocol 	Description
+    rcp 	rshd 	514 	TCP 	Copy a file or directory bidirectionally from the local system to the remote system (or vice versa) or from one remote system to another. It works like the cp command on Linux but provides no warning to the user for overwriting existing files on a system.
+    rsh 	rshd 	514 	TCP 	Opens a shell on a remote machine without a login procedure. Relies upon the trusted entries in the /etc/hosts.equiv and .rhosts files for validation.
+    rexec 	rexecd 	512 	TCP 	Enables a user to run shell commands on a remote machine. Requires authentication through the use of a username and password through an unencrypted network socket. Authentication is overridden by the trusted entries in the /etc/hosts.equiv and .rhosts files.
+    rlogin 	rlogind 	513 	TCP 	Enables a user to log in to a remote host over the network. It works similarly to telnet but can only connect to Unix-like hosts. Authentication is overridden by the trusted entries in the /etc/hosts.equiv and .rhosts files.
+
+`cat /etc/hosts.equiv` containes users that does not need authentication
+
+`sudo nmap -sV -p 512,513,514 10.0.17.2`
+
+```text
+Note: The hosts.equiv file is recognized as the global configuration 
+regarding all users on a system, whereas .rhosts provides a per-user configuration. 
+```
+
+<b>Sample .rhosts File</b>
+```bash
+zirap98@htb[/htb]$ cat .rhosts
+
+htb-student     10.0.17.5
++               10.0.17.10
++               +
+```
+
+<b>Logging in Using Rlogin</b>
+```bash
+rlogin 10.0.17.2 -l htb-student
+```
+
+```bash
+# Listing Authenticated Users Using Rwho
+rwho
+
+# Listing Authenticated Users Using Rusers
+rusers -al 10.0.17.5
+```
+
+# Windows Remote Management Protocols
+
+    Remote Desktop Protocol (RDP)
+
+    Windows Remote Management (WinRM)
+
+    Windows Management Instrumentation (WMI)
+
+<b>Footprinting RDP</b>
+```bash
+nmap -sV -sC 10.129.201.248 -p3389 --script rdp*
+
+# With additional --packet-trace we can 
+nmap -sV -sC 10.129.201.248 -p3389 --packet-trace --disable-arp-ping -n
+```
+
+[A Perl script](https://github.com/CiscoCXSecurity/rdp-sec-check) developed by Cisco CX Security Labs
+`sudo cpan`
+will unauthentically identify the security settings of RDP servers based on the handshakes
+
+<b>RDP Security Check:</b>
+```bash
+git clone https://github.com/CiscoCXSecurity/rdp-sec-check.git && cd rdp-sec-check
+./rdp-sec-check.pl 10.129.201.248
+```
+
+Authentication an connection to such RDP servers can be made in several ways. For example, we can connect to rdp servers on Linux using xfreerdp, rdesktop or remmina and interact with the GUI of the server accordingly. 
+
+```bash
+xfreerdp /u:cry0l1t3 /p:"P455w0rd!" /v:10.129.201.248
+```
+
+### WinRM - Windows Remote Management remote management protocol `p 5985 & 5986` 586 for tcp
+
+### Footprinting the service
+```bash
+nmap -sV -sC 10.129.201.248 -p5985,5986 --disable-arp-ping -n
+```
+
+If we want to find out whether one or more remote servers can be reaced via WinRM, we can easily do this with the help of PowerShell. The [Test-WsMan](https://learn.microsoft.com/en-us/powershell/module/microsoft.wsman.management/test-wsman?view=powershell-7.2) cmdlet is responsible for this, and the host's name in question is passed to it. In Linux-based environments, we can use the tool called [evil-winrm](https://github.com/Hackplayers/evil-winrm), another penetration testing tool designed to interact with WinRM.
+
+### WMI - Windows Management Instrumentation
+Microsoft's 
+Windows Management Instrumentation (WMI) is Microsoft's implementation and also an extension of the Common Information Model (CIM), core functionality of the standardized Web-Based Enterprise Management (WBEM) for the Windows platform. WMI allows read and write access to almost all settings on Windows systems. Understandably, this makes it the most critical interface in the Windows environment for the administration and remote maintenance of Windows computers, regardless of whether they are PCs or servers. WMI is typically accessed via PowerShell, VBScript, or the Windows Management Instrumentation Console (WMIC). WMI is not a single program but consists of several programs and various databases, also known as repositories.
+
+### Footprinting the service:
+[wmiexec.py](https://github.com/fortra/impacket/blob/master/examples/wmiexec.py)
+The initialization of the WMI communication always takes place on TCP port 135, and after the successful establishment of the connection, the communication is moved to a random port. For example, the program wmiexec.py from the Impacket toolkit can be used for this.
+```bash
+/usr/share/doc/python3-impacket/examples/wmiexec.py Cry0l1t3:"P455w0rD!"@10.129.201.248 "hostname"
+```

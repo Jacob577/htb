@@ -973,3 +973,10 @@ The initialization of the WMI communication always takes place on TCP port 135, 
 ```bash
 /usr/share/doc/python3-impacket/examples/wmiexec.py Cry0l1t3:"P455w0rD!"@10.129.201.248 "hostname"
 ```
+
+# Knowledge check for footprinting
+1. scan for open ports
+2. notice that in one of the ftp instances, it is called ceil's ftp, probably a UN
+3. Get the password either from doing an ipmi hashdump and dehash with hashcat or brute force with ncrack.
+4. wget -m --no-passive ftp://UN:PW@IP
+5. Use the ssh keys to ssh into the server

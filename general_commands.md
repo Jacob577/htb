@@ -5,6 +5,8 @@ Initial scan:
 General ports:
 `nmap -sV -T4 -p- 10.10.10.5`
 
+`sudo nmap -sV -sC -Pn -p 2121 10.129.203.6`
+
 In msfconsole:
 if we have a shell, search `exploit suggest` or `search local exploit suggester`
 
@@ -24,10 +26,6 @@ Check if there is an SQL database running´
 Also try reusing id_rsa keys, people reuse everything
 
 to brute force rdp: `crowbar -b rdp -s xx.xxx.xxx.xxx/32 -u johanna -C <full-mutated-password-list>`
-
-# Hard lab writeup
-`use crowbar to brute force rdp`
-assume you can extract an hash from everything
 
 
 
